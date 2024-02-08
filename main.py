@@ -2,7 +2,6 @@ import tkinter as tk
 import csv
 from tkinter import ttk
 import pandas as pd
-
 from customtkinter import *
 
 
@@ -28,12 +27,8 @@ def on_button_submit():
                      "BSIT": "Bachelor of Science in Information Technology",
                      "BSIS": "Bachelor of Science in Information Systems"}
 
-    # Initialize recent_course_code variable
-    recent_course_code = ""
-
     # Checks if the user input is valid
     if courseCode in valid_courses:
-        recent_course_code = courseCode  # Update the recent_course_code variable
         course_description = valid_courses[courseCode]
 
         # Append user input to a CSV file
@@ -63,7 +58,7 @@ def toggle_mode():
 # Create the main window
 app = tk.Tk()
 app.title("Simple Student Information System")
-app.geometry("800x400")
+app.geometry("880x400")
 
 style = ttk.Style(app)
 app.tk.call("source", "forest-light.tcl")
@@ -96,7 +91,7 @@ entry_gender.insert("0", "Enter Gender Here")
 entry_gender.grid(row=3, column=0, sticky="ew", padx=5, pady=5)
 
 courseCode_list = ["BSCS", "BSCA", "BSIT", "BSIS"]
-entry_courseCode = ttk.Combobox(widgets_frame, state="readonly", values=courseCode_list)
+entry_courseCode = ttk.Combobox(widgets_frame, values=courseCode_list)
 entry_courseCode.insert("0", "Enter Course Code Here")
 entry_courseCode.grid(row=4, column=0, sticky="ew", padx=5, pady=5)
 
@@ -105,9 +100,6 @@ button_submit.grid(row=6, column=0, padx=5, pady=5)
 
 seperator = ttk.Separator(widgets_frame)
 seperator.grid(row=7, column=0, sticky="ew", padx=(20, 10), pady=5)
-
-mode_switch = ttk.Checkbutton(widgets_frame, text="Mode", style="Switch", command=toggle_mode)
-mode_switch.grid(row=8, column=0, sticky="nsew", padx=5, pady=10)
 
 def populate_treeview():
     # Read your CSV file into a DataFrame
