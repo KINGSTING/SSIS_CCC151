@@ -1,9 +1,8 @@
 import tkinter as tk
-import csv
-from tkinter import ttk
+from tkinter import ttk, messagebox
 import pandas as pd
-from customtkinter import *
-
+import csv
+import os
 
 def on_button_submit():
     # Gets the User inputs
@@ -12,6 +11,10 @@ def on_button_submit():
     yr_lvl = entry_yrlvl.get()
     gender = entry_gender.get()
     courseCode = entry_courseCode.get()
+
+    if not (name and id_num and yr_lvl and gender and courseCode):
+        messagebox.showerror("Error", "Please fill in all fields.")
+        return
 
     # Appends to Student CSV File
     with open("student.csv", mode="a", newline='') as csvfile:
@@ -47,12 +50,20 @@ def on_button_submit():
     entry_gender.delete(0, tk.END)
     entry_courseCode.delete(0, tk.END)
 
+def populate_treeview(event=None):
+    # Read your CSV file into a DataFrame
+    df = pd.read_csv("student.csv")
 
-def toggle_mode():
-    if mode_switch.instate(["selected"]):
-        style.theme_use("forest-light")
-    else:
-        style.theme_use("forest-dark")
+    # Clear existing items in the Treeview
+    for item in treeview.get_children():
+        treeview.delete(item)
+
+    # Insert data into the Treeview with center alignment
+    for index, row in df.iterrows():
+        treeview.insert("", "end", values=tuple(row), tags="centered")
+
+    # Set a tag for centered alignment
+    treeview.tag_configure("centered", anchor="center")
 
 
 # Create the main window
@@ -67,9 +78,12 @@ style.theme_use("forest-dark")
 
 frame = ttk.Frame(app)
 frame.grid(sticky="nsew")
+frame.columnconfigure(0, weight=1)
+frame.columnconfigure(1, weight=1)
+frame.rowconfigure(0, weight=1)
 
 widgets_frame = ttk.LabelFrame(frame, text="Register here!")
-widgets_frame.grid(row=0, column=0, padx=20, pady=10)
+widgets_frame.grid(row=0, column=0, padx=20, pady=10, sticky="nsew")
 
 entry_name = tk.Entry(widgets_frame)
 entry_name.insert(0, "Enter Full Name Here")
@@ -101,24 +115,11 @@ button_submit.grid(row=6, column=0, padx=5, pady=5)
 seperator = ttk.Separator(widgets_frame)
 seperator.grid(row=7, column=0, sticky="ew", padx=(20, 10), pady=5)
 
-def populate_treeview():
-    # Read your CSV file into a DataFrame
-    df = pd.read_csv("student.csv")
-
-    # Clear existing items in the Treeview
-    for item in treeview.get_children():
-        treeview.delete(item)
-
-    # Insert data into the Treeview with center alignment
-    for index, row in df.iterrows():
-        treeview.insert("", "end", values=tuple(row), tags="centered")
-
-    # Set a tag for centered alignment
-    treeview.tag_configure("centered", anchor="center")
-
-
 treeFrame = ttk.Frame(frame)
 treeFrame.grid(row=0, column=1, pady=10, sticky="nsew")
+treeFrame.columnconfigure(0, weight=1)
+treeFrame.rowconfigure(0, weight=1)
+
 treeScroll = ttk.Scrollbar(treeFrame)
 treeScroll.pack(side="right", fill="y")
 
@@ -142,6 +143,9 @@ treeScroll.config(command=treeview.yview)
 # Add a button to populate the Treeview with data from the CSV file
 button_populate_treeview = tk.Button(frame, text="Populate Treeview", command=populate_treeview)
 button_populate_treeview.grid(row=1, column=1, pady=10)
+
+# Bind the resize event to adjust the sizes of widgets dynamically
+app.bind("<Configure>", lambda event: populate_treeview())
 
 # Run the main loop
 app.mainloop()
