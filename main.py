@@ -3,6 +3,7 @@ from tkinter import ttk, messagebox
 import pandas as pd
 import csv
 import os
+import re
 
 def on_button_submit():
     # Gets the User inputs
@@ -14,6 +15,11 @@ def on_button_submit():
 
     if not (name and id_num and yr_lvl and gender and courseCode):
         messagebox.showerror("Error", "Please fill in all fields.")
+        return
+
+    if not validate_id_number(id_num):
+        messagebox.showerror("Error",
+                             "Invalid ID number format. Please enter a valid ID number in the format 'YYYY-NNNN'.")
         return
 
     # Appends to Student CSV File
@@ -28,7 +34,27 @@ def on_button_submit():
     valid_courses = {"BSCS": "Bachelor of Science in Computer Science",
                      "BSCA": "Bachelor of Science in Computer Applications",
                      "BSIT": "Bachelor of Science in Information Technology",
-                     "BSIS": "Bachelor of Science in Information Systems"}
+                     "BSIS": "Bachelor of Science in Information Systems",
+                     "BSPSYCH": "Bachelor of Science in Psychology",
+                     "BAPSYCH": "Bachelor of Arts in Psychology",
+                     "BAELS": "Bachelor of Arts in English Language Studies",
+                     "BALCS": "Bachelor of Arts in Language and Culture Studies",
+                     "BSSOCIO": "Bachelor of Arts in Sociology",
+                     "BAHIS": "Bachelor of Arts in History",
+                     "BAFIL": "Batsilyer ng Sining sa Filipino",
+                     "BAPAN": "Batsilyer ng Sining sa Panitikan",
+                     "BAPOLSCI": "Bachelor in Arts in Political Science",
+                     "BSCE": "Bachelor of Science in Civil Engineering",
+                     "BSCerE": "Bachelor of Science in Ceramic Engineering",
+                     "BSCoE": "Bachelor of Science in Computer Engineering",
+                     "BSECE": "Bachelor of Science in Electronics & Communications Engineering",
+                     "BSEE": "Bachelor ofScience in ElectricalEngineering",
+                     "BSMiningE": "Bachelor of Science in Mining Engineering",
+                     "BSEnET": "Bachelor of Science in Environmental Engineering Technology",
+                     "BSME": "Bachelor of Science in Mechanical Engineering",
+                     "BSMetE": "Bachelor of Science in Metallurgical Engineering",
+                     "BSN": "Bachelor of Science in Nursing"
+                     }
 
     # Checks if the user input is valid
     if courseCode in valid_courses:
@@ -41,17 +67,9 @@ def on_button_submit():
                 csv_writer.writerow(["Course", "Course_Title"])
             csv_writer.writerow([courseCode, course_description])
     else:
-        print("Invalid course. Please enter BSCS, BSCA, BSIT, or BSIS.")
+        messagebox.showerror("Error", "Please enter Course Code format BS/BA")
 
-    # Clear entry widgets
-    entry_name.delete(0, tk.END)
-    entry_idnum.delete(0, tk.END)
-    entry_yrlvl.delete(0, tk.END)
-    entry_gender.delete(0, tk.END)
-    entry_courseCode.delete(0, tk.END)
-
-def populate_treeview(event=None):
-    # Read your CSV file into a DataFrame
+    #To show the results
     df = pd.read_csv("student.csv")
 
     # Clear existing items in the Treeview
@@ -64,6 +82,17 @@ def populate_treeview(event=None):
 
     # Set a tag for centered alignment
     treeview.tag_configure("centered", anchor="center")
+
+    # Clear entry widgets
+    entry_name.delete(0, tk.END)
+    entry_idnum.delete(0, tk.END)
+    entry_yrlvl.delete(0, tk.END)
+    entry_gender.delete(0, tk.END)
+    entry_courseCode.delete(0, tk.END)
+
+def validate_id_number(id_num):
+    pattern = r'^\d{4}-\d{4}$'  # Regex pattern for YEAR-number format
+    return bool(re.match(pattern, id_num))
 
 
 # Create the main window
@@ -86,27 +115,45 @@ widgets_frame = ttk.LabelFrame(frame, text="Register here!")
 widgets_frame.grid(row=0, column=0, padx=20, pady=10, sticky="nsew")
 
 entry_name = tk.Entry(widgets_frame)
-entry_name.insert(0, "Enter Full Name Here")
+entry_name.insert(0, "Name")
 entry_name.bind("<FocusIn>", lambda e: entry_name.delete('0', 'end'))
-entry_name.grid(row=0, column=0, sticky="ew", padx=5, pady=5)
+entry_name.grid(row=0, column=0, sticky="ew", padx=5, pady=10)
 
 entry_idnum = tk.Entry(widgets_frame)
-entry_idnum.insert(0, "Enter ID Number Here")
+entry_idnum.insert(0, "ID Number")
 entry_idnum.bind("<FocusIn>", lambda e: entry_idnum.delete('0', 'end'))
-entry_idnum.grid(row=1, column=0, sticky="ew", padx=5, pady=5)
+entry_idnum.grid(row=1, column=0, sticky="ew", padx=5, pady=10)
 
-entry_yrlvl = ttk.Spinbox(widgets_frame, from_=1, to=9)
-entry_yrlvl.insert("0", "Enter Year Level Here")
-entry_yrlvl.grid(row=2, column=0, sticky="ew", padx=5, pady=5)
+level= ["1st Year", "2nd Year", "3rd Year", "4th Year", "5th Year", "6th Year"]
+entry_yrlvl = ttk.Combobox(widgets_frame, values=level)
+entry_yrlvl.insert("0", "Year Level")
+entry_yrlvl.grid(row=2, column=0, sticky="ew", padx=5, pady=10)
 
 gender_list = ["Male", "Female", "Other"]
 entry_gender = ttk.Combobox(widgets_frame, values=gender_list)
-entry_gender.insert("0", "Enter Gender Here")
-entry_gender.grid(row=3, column=0, sticky="ew", padx=5, pady=5)
+entry_gender.insert("0", "Gender")
+entry_gender.grid(row=3, column=0, sticky="ew", padx=5, pady=10)
 
-courseCode_list = ["BSCS", "BSCA", "BSIT", "BSIS"]
+courseCode_list = ["BSCS", "BSCA", "BSIT", "BSIS", "BSPSYCH",
+                   "BAPSYCH",
+                   "BAELS",
+                   "BALCS",
+                   "BSSOCIO",
+                   "BAHIS",
+                   "BAFIL",
+                   "BAPAN",
+                   "BAPOLSCI",
+                   "BSCE",
+                   "BSCoE",
+                   "BSECE",
+                   "BSEE",
+                   "BSMiningE",
+                   "BSEnET",
+                   "BSME",
+                   "BSMetE",
+                   "BSN"]
 entry_courseCode = ttk.Combobox(widgets_frame, values=courseCode_list)
-entry_courseCode.insert("0", "Enter Course Code Here")
+entry_courseCode.insert("0", "Course")
 entry_courseCode.grid(row=4, column=0, sticky="ew", padx=5, pady=5)
 
 button_submit = tk.Button(widgets_frame, text="SUBMIT", command=on_button_submit)
@@ -140,12 +187,6 @@ treeview.column("Course_Code", width=100, anchor="center")
 treeview.pack(expand=True, fill="both")
 treeScroll.config(command=treeview.yview)
 
-# Add a button to populate the Treeview with data from the CSV file
-button_populate_treeview = tk.Button(frame, text="Populate Treeview", command=populate_treeview)
-button_populate_treeview.grid(row=1, column=1, pady=10)
-
-# Bind the resize event to adjust the sizes of widgets dynamically
-app.bind("<Configure>", lambda event: populate_treeview())
 
 # Run the main loop
 app.mainloop()
