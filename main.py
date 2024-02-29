@@ -290,12 +290,7 @@ def search_student():
 # Create the main window
 app = tk.Tk()
 app.title("Simple Student Information System")
-app.geometry("1260x450")
-# Create the theme of the window
-style = ttk.Style(app)
-app.tk.call("source", "forest-light.tcl")
-app.tk.call("source", "forest-dark.tcl")
-style.theme_use("forest-dark")
+app.geometry("1200x400")
 
 frame = ttk.Frame(app)
 frame.grid(sticky="nsew")
