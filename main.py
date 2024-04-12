@@ -5,6 +5,7 @@ import csv
 import os
 import re
 
+
 def load_courses(filename):
     courses = {}
     with open(filename, newline='', encoding='utf-8') as csvfile:
@@ -39,6 +40,7 @@ def update_student_status():
     # Write updated DataFrame back to CSV
     df.to_csv("student.csv", index=False)
 
+
 def on_button_submit():
     # Gets the user inputs
     name = entry_name.get()
@@ -53,16 +55,18 @@ def on_button_submit():
         return
 
     if not validate_id_number(id_num):
-        messagebox.showerror("Error", "Invalid ID number format. Please enter a valid ID number in the format 'YYYY-NNNN'.")
+        messagebox.showerror("Error",
+                             "Invalid ID number format. Please enter a valid ID number in the format 'YYYY-NNNN'.")
         return
 
-    # Check if the course code is valid
-    courses = load_courses('course.csv')
-    if course_code not in courses:
-        messagebox.showerror("Error", "Invalid course code.")
+    existing_ids = load_student_ids('student.csv')
+    if check_duplicate_id(id_num,existing_ids):
+        messagebox.showerror("Error",
+                             "Invalid ID number. Already existing ID number.")
         return
 
     # Get the course title
+    courses = load_courses('course.csv')
     course_title = courses[course_code]
 
     # Check if the student is enrolled or not
@@ -91,7 +95,7 @@ def on_button_submit():
     # Make the guides appear
     entry_name.insert(0, "Name")
     entry_idnum.insert(0, "ID Number")
-    entry_yrlvl.insert(0,"Year Level")
+    entry_yrlvl.insert(0, "Year Level")
     entry_gender.insert(0, "Gender")
     entry_courseCode.insert(0, "Course Code")
 
@@ -100,6 +104,13 @@ def on_button_edit():
     selected_item = treeview.selection()
     if not selected_item:
         messagebox.showerror("Error", "Please select a row to edit.")
+        return
+
+    id_num = entry_idnum.get()
+    existing_ids = load_student_ids('student.csv')
+    if check_duplicate_id(id_num, existing_ids):
+        messagebox.showerror("Error",
+                             "Invalid ID number. Already existing ID number.")
         return
 
     # Get the values of the selected row
@@ -121,10 +132,11 @@ def on_button_edit():
     entry_courseCode.delete(0, tk.END)
     entry_courseCode.insert(0, values[4])
 
-    #This removes the submit button to be replaced by the save button
+    # This removes the submit button to be replaced by the save button
     button_submit.grid_remove()
 
     button_save.grid(row=6, column=0, padx=5, pady=5)
+
 
 def on_button_save():
     # Get the selected item in the treeview
@@ -133,8 +145,32 @@ def on_button_save():
         messagebox.showerror("Error", "Please select a row to save.")
         return
 
+
     # Get the values of the selected row
-    values = [entry_name.get(), entry_idnum.get(), entry_yrlvl.get(), entry_gender.get(), entry_courseCode.get()]
+    name = entry_name.get()
+    id_num = entry_idnum.get()
+    yr_lvl = entry_yrlvl.get()
+    gender = entry_gender.get()
+    course_code = entry_courseCode.get()
+
+    # Check if any field is empty
+    if not (name and id_num and yr_lvl and gender and course_code):
+        messagebox.showerror("Error", "Please fill in all fields.")
+        return
+
+    # Validate ID number format
+    if not validate_id_number(id_num):
+        messagebox.showerror("Error",
+                             "Invalid ID number format. Please enter a valid ID number in the format 'YYYY-NNNN'.")
+        return
+
+    #Validate ID duplication
+    existing_ids = load_student_ids('student.csv')
+    if check_duplicate_id(id_num, existing_ids):
+        messagebox.showerror("Error",
+                             "Invalid ID number. Already existing ID number.")
+        return
+
 
     # Get the index of the selected row
     selected_row_index = treeview.index(selected_item)
@@ -144,7 +180,7 @@ def on_button_save():
         reader = csv.reader(csvfile)
         rows = list(reader)
         if len(rows) > selected_row_index + 1:  # Check if the selected row index is within bounds
-            rows[selected_row_index + 1] = values[:4] + [values[4]]  # Update the values in the corresponding row
+            rows[selected_row_index + 1] = [name, id_num, yr_lvl, gender, course_code]  # Update the values in the corresponding row
         else:
             messagebox.showerror("Error", "Selected row index is out of bounds.")
             return
@@ -154,7 +190,7 @@ def on_button_save():
         writer.writerows(rows)
 
     # Update the Treeview with the edited values
-    treeview.item(selected_item, values=values[:4] + [values[4]])
+    treeview.item(selected_item, values=(name, id_num, yr_lvl, gender, course_code))
 
     # Update student status
     update_student_status()
@@ -172,6 +208,7 @@ def on_button_save():
     update_student_status()
     on_button_load()
 
+
 def on_button_del():
     # Get the selected item in the treeview
     selected_item = treeview.selection()
@@ -183,18 +220,13 @@ def on_button_del():
     confirmation = messagebox.askyesno("Confirmation", "Are you sure you want to delete this row?")
 
     if confirmation:
-        # Get the index of the selected row
-        selected_row_index = treeview.index(selected_item)
+        # Get the unique identifier of the selected row (e.g., ID number)
+        selected_row_id = treeview.item(selected_item)['values'][1]
 
         # Delete the selected row from the CSV file
         with open("student.csv", mode="r", newline='') as csvfile:
             reader = csv.reader(csvfile)
-            rows = list(reader)
-            if len(rows) > selected_row_index + 1:  # Check if the selected row index is within bounds
-                del rows[selected_row_index + 1]  # Delete the corresponding row
-            else:
-                messagebox.showerror("Error", "Selected row index is out of bounds.")
-            return
+            rows = [row for row in reader if row[1] != selected_row_id]  # Exclude the selected row
 
         # Write the updated rows back to the CSV file
         with open("student.csv", mode="w", newline='') as csvfile:
@@ -208,12 +240,29 @@ def on_button_del():
         update_student_status()
         on_button_load()
 
+
 def validate_id_number(id_num):
     pattern = r'^\d{4}-\d{4}$'  # Regex pattern for YEAR-number format
     return bool(re.match(pattern, id_num))
 
-def get_course_title(course_code):
-    courses = {
+def load_student_ids(filename):
+    student_ids = set()
+    try:
+        with open(filename, newline='', encoding='utf-8') as csvfile:
+            reader = csv.reader(csvfile)
+            next(reader)  # Skip header
+            for row in reader:
+                student_ids.add(row[1])  # Assuming ID_Number is in the second column
+    except FileNotFoundError:
+        print(f"Error: {filename} not found.")
+    except Exception as e:
+        print(f"Error: {e}")
+    return student_ids
+
+def check_duplicate_id(id_num, student_ids):
+    return id_num in student_ids
+
+courses = {
         "BSCS": "Bachelor of Science in Computer Science",
         "BSCA": "Bachelor of Science in Computer Applications",
         "BSIT": "Bachelor of Science in Information Technology",
@@ -238,7 +287,20 @@ def get_course_title(course_code):
         "BSMetE": "Bachelor of Science in Metallurgical Engineering",
         "BSN": "Bachelor of Science in Nursing"
     }
-    return courses.get(course_code, "Unknown")
+def get_course_title(course_code):
+    courses = {}  # Initialize an empty dictionary to store course information
+
+    # Read course information from the CSV file
+    with open("course.csv", newline='', encoding='utf-8') as csvfile:
+        reader = csv.reader(csvfile)
+        for row in reader:
+            if len(row) == 2:  # Check if the row contains course code and title
+                code, title = row
+                courses[code.strip()] = title.strip()  # Add course code and title to the dictionary
+
+    # Get the course title corresponding to the given course code
+    return courses.get(course_code.upper(), "Unknown")
+
 
 def on_button_load():
     if os.path.exists("student.csv"):
@@ -263,11 +325,12 @@ def on_button_load():
 
             # Insert the row into the Treeview
             treeview.insert("", "end", values=(
-            row["Name"], row["ID_Number"], row["Year_Level"], row["Gender"], row["Course_Code"], course_title,
-            status), tags="centered")
+                row["Name"], row["ID_Number"], row["Year_Level"], row["Gender"], row["Course_Code"], course_title,
+                status), tags="centered")
 
         # Set a tag for centered alignment
         treeview.tag_configure("centered", anchor="center")
+
 
 def search_student():
     query = entry_search.get().strip().lower()  # Get the search query and convert it to lowercase
@@ -286,6 +349,7 @@ def search_student():
 
     entry_search.delete(0, tk.END)
     entry_search.insert(0, "Search Name or ID")
+
 
 # Create the main window
 app = tk.Tk()
@@ -311,7 +375,7 @@ entry_idnum.insert(0, "ID Number")
 entry_idnum.bind("<FocusIn>", lambda e: entry_idnum.delete('0', 'end'))
 entry_idnum.grid(row=1, column=0, sticky="ew", padx=5, pady=10)
 
-level= ["1st Year", "2nd Year", "3rd Year", "4th Year", "5th Year", "6th Year"]
+level = ["1st Year", "2nd Year", "3rd Year", "4th Year", "5th Year", "6th Year"]
 entry_yrlvl = ttk.Combobox(widgets_frame, values=level)
 entry_yrlvl.insert("0", "Year Level")
 entry_yrlvl.grid(row=2, column=0, sticky="ew", padx=5, pady=10)
@@ -320,6 +384,27 @@ gender_list = ["Male", "Female", "Other"]
 entry_gender = ttk.Combobox(widgets_frame, values=gender_list)
 entry_gender.insert("0", "Gender")
 entry_gender.grid(row=3, column=0, sticky="ew", padx=5, pady=10)
+
+def read_course_codes_from_csv(filename, course_code_list):
+    if course_code_list is None:
+        course_code_list = []
+
+    try:
+        with open(filename, mode="r", newline='') as csvfile:
+            reader = csv.reader(csvfile)
+            for row in reader:
+                if row:
+                    course_info = row[0].split(",")  # Split the row by comma
+                    if len(course_info) >= 1:
+                        course_code = course_info[0].strip().upper()  # Get the course code
+                        if course_code not in course_code_list:
+                            course_code_list.append(course_code)
+    except FileNotFoundError:
+        print(f"Error: {filename} not found.")
+    except Exception as e:
+        print(f"Error: {e}")
+
+    return course_code_list
 
 courseCode_list = ["BSCS", "BSCA", "BSIT", "BSIS", "BSPSYCH",
                    "BAPSYCH",
@@ -339,6 +424,9 @@ courseCode_list = ["BSCS", "BSCA", "BSIT", "BSIS", "BSPSYCH",
                    "BSME",
                    "BSMetE",
                    "BSN"]
+
+courseCode_list = read_course_codes_from_csv("course.csv", courseCode_list)
+
 entry_courseCode = ttk.Combobox(widgets_frame, values=courseCode_list)
 entry_courseCode.insert("0", "Course")
 entry_courseCode.grid(row=4, column=0, sticky="ew", padx=5, pady=5)
@@ -369,12 +457,13 @@ button_del.pack(side="left", padx=5)
 button_load = tk.Button(button_frame1, text="LOAD", command=on_button_load)
 button_load.pack(side="right", padx=5)
 
+
 search_frame = ttk.Frame(treeFrame)
 search_frame.pack(side="top", pady=10, anchor="e")
 
 # Create the search entry
 entry_search = tk.Entry(search_frame)
-entry_search.insert(0,"Search Name or ID")
+entry_search.insert(0, "Search Name or ID")
 entry_search.bind("<FocusIn>", lambda e: entry_search.delete('0', 'end'))
 entry_search.pack(side="left", padx=5)
 
@@ -406,5 +495,123 @@ treeview.column("Status", width=100, anchor="center")
 treeview.pack(expand=True, fill="both")
 treeScroll.config(command=treeview.yview)
 
-# Run the main loop
+
+def update_course_code_list():
+    global courseCode_list
+    courseCode_list = read_course_codes_from_csv("course.csv", courseCode_list)
+    entry_courseCode['values'] = courseCode_list
+
+
+
+# Define a global variable to keep track of the manager window
+manager_window = None
+
+def createManager(parent):
+    global manager_window
+    # Check if the manager window is already open
+    if manager_window is not None and manager_window.winfo_exists():
+        manager_window.lift()  # Bring the existing window to the front
+        return
+
+    # Create a new manager window if it doesn't exist
+    manager_window = tk.Toplevel(parent)
+    manager_window.title("Manage Courses")
+
+    # Create a LabelFrame inside the Toplevel window
+    course_frame = ttk.LabelFrame(manager_window, text="Manage Courses")
+    course_frame.pack(padx=20, pady=10, fill="both", expand=True)
+
+    entry_course_code = tk.Entry(course_frame)
+    entry_course_code.insert(0, "Course Code")
+    entry_course_code.bind("<FocusIn>", lambda e: entry_course_code.delete('0', 'end'))
+    entry_course_code.grid(row=0, column=0, padx=5, pady=5)
+    entry_course_title = tk.Entry(course_frame)
+    entry_course_title.insert(0, "Course Title")
+    entry_course_title.bind("<FocusIn>", lambda e: entry_course_title.delete('0', 'end'))
+    entry_course_title.grid(row=0, column=1, padx=5, pady=5)
+
+    course_listbox = tk.Listbox(course_frame, width=50, height=10)
+    course_listbox.grid(row=1, column=0, columnspan=4, padx=5, pady=5)
+
+    def on_button_add_course():
+        course_code = entry_course_code.get()
+        course_title = entry_course_title.get()
+
+        if not (course_code and course_title):
+            messagebox.showerror("Error", "Please fill in both fields (Course Code and Course Title).")
+            return
+        if course_code == "Course Code":
+            messagebox.showerror("Error", "Please enter a valid course code.")
+            return
+        if course_code == "Course Title":
+            messagebox.showerror("Error", "Please enter a valid course code.")
+            return
+
+        if course_code not in courses:
+            courses[course_code] = course_title
+            print(f"Course '{course_code}: {course_title}' added successfully.")
+        else:
+            print(f"Course '{course_code}: {courses[course_code]}' already exists.")
+
+        with open("course.csv", mode="a", newline='') as csvfile:
+            csv_writer = csv.writer(csvfile)
+            csv_writer.writerow([course_code.upper(), course_title])
+
+
+        load_course_list(course_listbox)
+        update_course_code_list()
+        on_button_load()
+
+        entry_course_code.delete(0, tk.END)
+        entry_course_title.delete(0, tk.END)
+
+        entry_course_code.insert(0, "Course Code")
+        entry_course_title.insert(0, "Course Title")
+
+    def on_button_delete_course():
+        selected_course = course_listbox.curselection()
+        if not selected_course:
+            messagebox.showerror("Error", "Please select a course to delete.")
+            return
+
+        course_info = course_listbox.get(selected_course)
+        course_code, course_title = course_info.split(": ", 1)
+
+        confirmation = messagebox.askyesno("Confirmation",
+                                           f"Are you sure you want to delete {course_code}: {course_title}?")
+        if not confirmation:
+            return
+
+        with open("course.csv", mode="r", newline='') as csvfile:
+            reader = csv.reader(csvfile)
+            rows = [row for row in reader if not row or row[0].strip() != course_code]
+
+        with open("course.csv", mode="w", newline='') as csvfile:
+            writer = csv.writer(csvfile)
+            writer.writerows(rows)
+
+        load_course_list(course_listbox)
+        update_course_code_list()
+        on_button_load()
+
+    button_add_course = tk.Button(course_frame, text="Add Course", command=on_button_add_course)
+    button_add_course.grid(row=0, column=2, padx=5, pady=5)
+    button_delete_course = tk.Button(course_frame, text="Delete Course", command=on_button_delete_course)
+    button_delete_course.grid(row=0, column=3, padx=5, pady=5)
+
+    load_course_list(course_listbox)
+
+def load_course_list(course_listbox):
+    course_listbox.delete(0, tk.END)
+
+    with open("course.csv", newline='', encoding='utf-8') as csvfile:
+        reader = csv.reader(csvfile)
+        for row in reader:
+            if len(row) == 2:
+                course_listbox.insert(tk.END, f"{row[0]}: {row[1]}")
+
+button_manage = tk.Button(button_frame1, text="MANAGE", command=lambda: createManager(app))
+button_manage.pack(side="left", padx=5)
+
+
 app.mainloop()
