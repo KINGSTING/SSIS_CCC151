@@ -73,7 +73,7 @@ class GUI:
         self.button_load = tk.Button(self.button_frame1, text="LOAD", command=self.on_button_load)
         self.button_load.pack(side="right", padx=5)
 
-        self.button_manage = tk.Button(self.button_frame1, text="MANAGE", command=self.on_button_manage)
+        self.button_manage = tk.Button(self.button_frame1, text="COURSES", command=self.on_button_courses)
         self.button_manage.pack(side="right", padx=5)
 
         self.search_frame = ttk.Frame(self.treeFrame)
@@ -246,29 +246,24 @@ class GUI:
 
             # Load courses
             course_codes = Course.read_course_codes_from_csv('course.csv', course_code_list=None)
-
-            # Update the values of the entry_courseCode combobox
-            self.entry_courseCode['values'] = course_codes
+            courses = Course.load_courses('course.csv')
 
             # Insert data into the Treeview with center alignment
             for index, row in df.iterrows():
                 course_code = row['Course_Code']
-                course_title = Course.get_course_title(course_code)
-
-                # Check if the course code is in the list of course codes
-                if course_code in course_codes:
-                    status = "Enrolled"
-                else:
-                    status = "Unenrolled"
+                if course_code not in courses:
+                    course_code = "N/A"  # Display "N/A" if course code not found
+                course_title = courses.get(course_code, "Unknown")  # Get course title or "Unknown" if not found
+                status = "Enrolled" if course_title != "Unknown" else "Unenrolled"  # Set status based on course existence
 
                 self.treeview.insert("", "end", values=(
-                    row["Name"], row["ID_Number"], row["Year_Level"], row["Gender"], course_code, course_title,
-                    status), tags="centered")
+                    row["Name"], row["ID_Number"], row["Year_Level"], row["Gender"], course_code, course_title, status),
+                                     tags="centered")
 
             # Set a tag for centered alignment
             self.treeview.tag_configure("centered", anchor="center")
 
-    def on_button_manage(self):
+    def on_button_courses(self):
         # Instantiate CourseManager GUI with self.app as its parent
         course_manager_window = tk.Toplevel(self.app)
         course_manager_window.title("Course Manager")
@@ -477,10 +472,11 @@ class Course:
 
 class CourseManager:
     def __init__(self, parent):
+        self.selected_course_index = None
         self.entry_courseCode = None
         self.courseCode_list = None
         self.parent = parent
-        self.parent.geometry("500x300")  # Increase the window size
+        self.parent.geometry("580x300")  # Increase the window size
         self.parent.transient(root.app)  # Set root.app as the transient master to keep it always on top
         self.parent.grab_set()  # Grab all events for the CourseManager window
 
@@ -504,11 +500,16 @@ class CourseManager:
         self.button_add_course = ttk.Button(self.course_frame, text="Add Course", command=self.add_course)
         self.button_add_course.grid(row=0, column=2, padx=5, pady=5)
 
+        self.button_edit_course = ttk.Button(self.course_frame, text="Edit Course", command=self.edit_course)
+        self.button_edit_course.grid(row=0, column=3, padx=5, pady=5)
+
         self.button_delete_course = ttk.Button(self.course_frame, text="Delete Course", command=self.delete_course)
-        self.button_delete_course.grid(row=0, column=3, padx=5, pady=5)
+        self.button_delete_course.grid(row=0, column=4, padx=5, pady=5)
 
         self.course_listbox = tk.Listbox(self.course_frame, width=50, height=10)
-        self.course_listbox.grid(row=1, column=0, columnspan=4, padx=5, pady=5)
+        self.course_listbox.grid(row=1, column=0, columnspan=5, padx=5, pady=5)
+
+        self.button_save_course = ttk.Button(self.course_frame, text="Save Course", command=self.save_course_changes)
 
         self.load_course_list()
 
@@ -516,9 +517,19 @@ class CourseManager:
         course_code = self.entry_course_code.get().strip().upper()
         course_title = self.entry_course_title.get().strip()
 
+        # Check if the entry fields still contain the placeholder strings
+        if course_code == "Course Code" or course_title == "Course Title":
+            messagebox.showerror("Error", "Please enter both course code and title.")
+            return
+
         # Validate inputs
         if not course_code or not course_title:
             messagebox.showerror("Error", "Please enter both course code and title.")
+            return
+
+        # Check for duplicate course code
+        if self.check_duplicate_course_code(course_code):
+            messagebox.showerror("Error", "Course code already exists.")
             return
 
         # Append the new course to the CSV file
@@ -526,15 +537,18 @@ class CourseManager:
             writer = csv.writer(csvfile)
             writer.writerow([course_code, course_title])
 
-        messagebox.showinfo("Success", "Course added successfully.")
-
         # Clear entry widgets
         self.entry_course_code.delete(0, tk.END)
         self.entry_course_title.delete(0, tk.END)
 
+        self.entry_course_code.insert(0, "Course Code")
+        self.entry_course_title.insert(0, "Course Title")
+
         # Update course list
         self.load_course_list()
         root.on_button_load()
+
+        messagebox.showinfo("Success", "Course added successfully.")
 
     def delete_course(self):
         selected_index = self.course_listbox.curselection()
@@ -563,6 +577,89 @@ class CourseManager:
         root.on_button_load()
 
         messagebox.showinfo("Success", "Course deleted successfully.")
+
+    def edit_course(self):
+        selected_index = self.course_listbox.curselection()
+        if not selected_index:
+            messagebox.showerror("Error", "Please select a course to edit.")
+            return
+
+        # Get the selected course index from the listbox
+        self.selected_course_index = selected_index[0]
+
+        # Get the selected course details from the listbox
+        selected_course_details = self.course_listbox.get(self.selected_course_index)
+        selected_course_code, selected_course_title = selected_course_details.split(": ")
+
+        # Disable the button while processing
+        self.button_add_course.config(state="disabled")
+        self.button_delete_course.config(state="disabled")
+
+        # Populate the entry widgets with the selected course details for editing
+        self.entry_course_code.delete(0, tk.END)
+        self.entry_course_code.insert(0, selected_course_code)
+        self.entry_course_title.delete(0, tk.END)
+        self.entry_course_title.insert(0, selected_course_title)
+
+        self.button_edit_course.grid_remove()
+        self.button_save_course.grid(row=0, column=3, padx=5, pady=5)
+
+    def save_course_changes(self):
+        selected_index = self.course_listbox.curselection()
+        if not selected_index:
+            messagebox.showerror("Error", "Please select a course to save changes.")
+            return
+
+        # Get the selected course index from the listbox
+        selected_course_index = selected_index[0]
+
+        # Get the selected course details from the listbox
+        selected_course_details = self.course_listbox.get(selected_course_index)
+        selected_course_code, _ = selected_course_details.split(": ")
+
+        # Get the edited course details from the entry widgets
+        edited_course_code = self.entry_course_code.get().strip().upper()
+        edited_course_title = self.entry_course_title.get().strip()
+
+        # Check for duplicate course code
+        if edited_course_code != selected_course_code and self.check_duplicate_course_code(edited_course_code,
+                                                                                           exclude_course=selected_course_code):
+            messagebox.showerror("Error", "Course code already exists.")
+            return
+
+        # Update the course details in the CSV file
+        with open('course.csv', mode='r', newline='') as csvfile:
+            reader = csv.reader(csvfile)
+            rows = list(reader)
+            for row in rows:
+                if row[0] == selected_course_code:
+                    row[0] = edited_course_code
+                    row[1] = edited_course_title
+
+        with open('course.csv', mode='w', newline='') as csvfile:
+            writer = csv.writer(csvfile)
+            writer.writerows(rows)
+
+        # Update the course listbox with the edited course details
+        self.course_listbox.delete(selected_course_index)
+        self.course_listbox.insert(selected_course_index, f"{edited_course_code}: {edited_course_title}")
+
+        self.button_save_course.grid_remove()
+        self.button_add_course.config(state="normal")
+        self.button_delete_course.config(state="normal")
+        self.button_edit_course.grid(row=0, column=3, padx=5, pady=5)
+
+        messagebox.showinfo("Success", "Changes saved successfully.")
+
+
+    def check_duplicate_course_code(self, course_code, exclude_course=None):
+        # Check if the entered course code already exists in the list of courses
+        for index in range(self.course_listbox.size()):
+            course_details = self.course_listbox.get(index)
+            existing_course_code, _ = course_details.split(": ")
+            if existing_course_code.upper() == course_code.upper() and existing_course_code.upper() != exclude_course.upper():
+                return True
+        return False
 
     def load_course_list(self):
         # Clear current course listbox
