@@ -528,7 +528,7 @@ class CourseManager:
             return
 
         # Check for duplicate course code
-        if self.check_duplicate_course_code(course_code):
+        if not self.check_duplicate_course_code(course_code):
             messagebox.showerror("Error", "Course code already exists.")
             return
 
